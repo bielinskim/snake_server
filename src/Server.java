@@ -3,6 +3,8 @@ import java.net.*;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class Server {
 
@@ -31,31 +33,99 @@ public class Server {
 
         }
     }
-    class Game {
-        
+
+    class Game extends Thread {
+
         String gameName;
         Client playerOne;
         Client playerTwo;
+        Snake snake;
+        int playerOneSnakePosX = 9;
+        int playerOneSnakePosY = 5;
+        String  playerOneSnakeDir = "dup";
+        int playerTwoSnakePosX = 9;
+        int playerTwoSnakePosY = 5;
+        String  playerTwoSnakeDir = "dup";
+        int[] returnedPos;
 
         public Game(String name, Client player) {
             gameName = name;
             playerOne = player;
+            snake = new Snake();
+            returnedPos = new int[2];
+            
+            this.startGame();
         }
-        
+
         public void joinGame(Client client) {
             playerTwo = client;
-            this.startGame();
-            
+            //this.startGame();
+
         }
+
         public void startGame() {
-            //System.out.println("Sukces"+gameName);
-             //sn = new Snake();
-            //sn.start();
+            System.out.println("Sukces" + gameName);
+            this.start();
         }
-        
-        
+
+        @Override
+        public void run() {
+            try {
+                while (true) {
+                    returnedPos = snake.getNextPos(playerOneSnakePosX, playerOneSnakePosY, playerOneSnakeDir);
+                    playerOneSnakePosX = returnedPos[0];
+                    playerOneSnakePosY = returnedPos[1];
+                    playerOne.s.sendHeadPos(playerOneSnakePosX, playerOneSnakePosY);
+                    Thread.sleep(50);
+                }
+            } catch (InterruptedException ex) {
+
+            }
+        }
+
     }
-    
+
+    class Snake {
+
+        public int[] getNextPos(int snakeHeadX, int snakeHeadY, String dir) {
+
+            if (snakeHeadX < 99 && snakeHeadY < 99 && snakeHeadX > 0 && snakeHeadY > 0) {
+
+                switch (dir) {
+                    case "dup":
+                        snakeHeadY--;
+                        break;
+                    case "ddown":
+                        snakeHeadY++;
+                        break;
+                    case "dleft":
+                        snakeHeadX--;
+                        break;
+                    case "dright":
+                        snakeHeadX++;
+                        break;
+                    default:
+                        snakeHeadX++;
+
+                }
+
+            } else if (snakeHeadX >= 99) {
+                snakeHeadX = 1;
+            } else if (snakeHeadX <= 0) {
+                snakeHeadX = 98;
+            } else if (snakeHeadY <= 0) {
+                snakeHeadY = 98;
+            } else if (snakeHeadY >= 99) {
+                snakeHeadY = 1;
+            } else {
+                snakeHeadX = 1;
+                snakeHeadY = 1;
+            }
+
+            return new int[]{snakeHeadX, snakeHeadY};
+        }
+    }
+
     class Client extends Thread {
 
         Client client;
@@ -66,7 +136,7 @@ public class Server {
 
         Reading r;
         Sending s;
-       // Snake sn;
+        // Snake sn;
 
         List<Fields> fields = new ArrayList();
 
@@ -107,57 +177,6 @@ public class Server {
 
         }
 
-        class Snake extends Thread {
-
-            int snakeHeadX = 9;
-            int snakeHeadY = 5;
-            String dir = "up";
-
-            @Override
-            public void run() {
-                try {
-                    while (true) {
-
-                        if (snakeHeadX < 99 && snakeHeadY < 99 && snakeHeadX > 0 && snakeHeadY > 0) {
-
-                            switch (dir) {
-                                case "dup":
-                                    snakeHeadY--;
-                                    break;
-                                case "ddown":
-                                    snakeHeadY++;
-                                    break;
-                                case "dleft":
-                                    snakeHeadX--;
-                                    break;
-                                case "dright":
-                                    snakeHeadX++;
-                                    break;
-                                default:
-                                    snakeHeadX++;
-
-                            }
-
-                        } else if (snakeHeadX >= 99) {
-                            snakeHeadX = 1;
-                        } else if (snakeHeadX <= 0) {
-                            snakeHeadX = 98;
-                        } else if (snakeHeadY <= 0) {
-                            snakeHeadY = 98;
-                        } else if (snakeHeadY >= 99) {
-                            snakeHeadY = 1;
-                        } else {
-                            snakeHeadX = 1;
-                            snakeHeadY = 1;
-                        }
-                        s.sendHeadPos(snakeHeadX, snakeHeadY);
-                        Thread.sleep(20);
-                    }
-                } catch (InterruptedException ex) {
-
-                }
-            }
-        }
         class Reading extends Thread {
 
             @Override
@@ -179,21 +198,21 @@ public class Server {
                             System.out.println(gName);
                             Game game = new Game(gName, client);
                             games.add(game);
-                            
+
                         }
                         if (data.charAt(0) == 'j') {
                             String gName = data.substring(1, data.length());
                             boolean gameExists = false;
                             for (int i = 0; i < games.size(); i++) {
-                                if(games.get(i).gameName.equals(gName)) {
+                                if (games.get(i).gameName.equals(gName)) {
                                     gameExists = true;
                                     games.get(i).joinGame(client);
                                 }
                             }
-                            if(!gameExists) {
-                                 System.out.println("Gra o podanej nazwie nie istnieje");
+                            if (!gameExists) {
+                                System.out.println("Gra o podanej nazwie nie istnieje");
                             }
-                            
+
                         }
                         if (data.charAt(0) == 'd') {
                             //sn.dir = data;
