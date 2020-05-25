@@ -48,11 +48,20 @@ public class Server {
         String  playerTwoSnakeDir = "dup";
         int[] returnedPos;
 
+        public void setPlayerOneSnakeDir(String playerOneSnakeDir) {
+            this.playerOneSnakeDir = playerOneSnakeDir;
+        }
+
+        public void setPlayerTwoSnakeDir(String playerTwoSnakeDir) {
+            this.playerTwoSnakeDir = playerTwoSnakeDir;
+        }
+
         public Game(String name, Client player) {
             gameName = name;
             playerOne = player;
             snake = new Snake();
             returnedPos = new int[2];
+            playerOne.s.initSnake();
             
             this.startGame();
         }
@@ -136,7 +145,6 @@ public class Server {
 
         Reading r;
         Sending s;
-        // Snake sn;
 
         List<Fields> fields = new ArrayList();
 
@@ -171,13 +179,11 @@ public class Server {
             r = new Reading();
             r.start();
             s = new Sending();
-            s.start();
-//            sn = new Snake();
-//            sn.start();
-
         }
 
         class Reading extends Thread {
+            Game game;
+            String player = "";
 
             @Override
             public void run() {
@@ -196,8 +202,9 @@ public class Server {
                         if (data.charAt(0) == 'c') {
                             String gName = data.substring(1, data.length());
                             System.out.println(gName);
-                            Game game = new Game(gName, client);
+                            game = new Game(gName, client);
                             games.add(game);
+                            player = "one";
 
                         }
                         if (data.charAt(0) == 'j') {
@@ -207,14 +214,24 @@ public class Server {
                                 if (games.get(i).gameName.equals(gName)) {
                                     gameExists = true;
                                     games.get(i).joinGame(client);
+                                     player = "two";
                                 }
                             }
                             if (!gameExists) {
                                 System.out.println("Gra o podanej nazwie nie istnieje");
                             }
-
                         }
+                        
                         if (data.charAt(0) == 'd') {
+
+                            switch (player) {
+                                case "one":
+                                    game.setPlayerOneSnakeDir(data);
+                                    break;
+                                case "two":
+                                    game.setPlayerTwoSnakeDir(data);
+                                    break;
+                            }
                             //sn.dir = data;
                         }
 
@@ -233,22 +250,10 @@ public class Server {
             }
         }
 
-        class Sending extends Thread {
+        class Sending {
 
             StringBuilder posToSend = new StringBuilder();
 
-            @Override
-            public void run() {
-
-                try {
-
-                    initSnake();
-                    Thread.sleep(50);
-
-                } catch (InterruptedException ex) {
-
-                }
-            }
 
             public void sendHeadPos(int snakeHeadX, int snakeHeadY) {
 
