@@ -3,8 +3,7 @@ import java.net.*;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import java.util.Random;
 
 public class Server {
 
@@ -40,13 +39,12 @@ public class Server {
         Client playerOne;
         Client playerTwo;
         Snake snake;
-        int playerOneSnakePosX = 9;
-        int playerOneSnakePosY = 5;
-        String  playerOneSnakeDir = "dup";
-        int playerTwoSnakePosX = 9;
-        int playerTwoSnakePosY = 5;
-        String  playerTwoSnakeDir = "dup";
-        int[] returnedPos;
+        Random random;
+        int[] playerOneSnakePosXY = {9, 5};
+        String playerOneSnakeDir = "dright";
+        int[] playerTwoSnakePosXY = {90, 95};
+        String playerTwoSnakeDir = "dleft";
+        int[] fruit = new int[2];
 
         public void setPlayerOneSnakeDir(String playerOneSnakeDir) {
             this.playerOneSnakeDir = playerOneSnakeDir;
@@ -60,43 +58,67 @@ public class Server {
             gameName = name;
             playerOne = player;
             snake = new Snake();
-            returnedPos = new int[2];
             playerOne.s.initSnake();
-            
-            this.startGame();
+            random = new Random();
         }
 
-        public void joinGame(Client client) {
+        public Game joinGame(Client client) {
             playerTwo = client;
-            //this.startGame();
-
+            playerTwo.s.initSnake();
+            this.startGame();
+            return this;
         }
 
         public void startGame() {
             System.out.println("Sukces" + gameName);
+            this.drawAndSendFruit();
             this.start();
         }
 
         @Override
         public void run() {
             try {
+                Thread.sleep(500);
                 while (true) {
-                    returnedPos = snake.getNextPos(playerOneSnakePosX, playerOneSnakePosY, playerOneSnakeDir);
-                    playerOneSnakePosX = returnedPos[0];
-                    playerOneSnakePosY = returnedPos[1];
-                    playerOne.s.sendHeadPos(playerOneSnakePosX, playerOneSnakePosY);
+                    playerOneSnakePosXY = snake.getNextPos(playerOneSnakePosXY, playerOneSnakeDir);
+                    playerOne.s.sendHeadPos(playerOneSnakePosXY[0], playerOneSnakePosXY[1]);
+                    playerTwo.s.sendHeadPos(playerOneSnakePosXY[0], playerOneSnakePosXY[1]);
                     Thread.sleep(50);
+                    playerTwoSnakePosXY = snake.getNextPos(playerTwoSnakePosXY, playerTwoSnakeDir);
+                    playerOne.s.sendHeadPos(playerTwoSnakePosXY[0], playerTwoSnakePosXY[1]);
+                    playerTwo.s.sendHeadPos(playerTwoSnakePosXY[0], playerTwoSnakePosXY[1]);
+                    if(playerOneSnakePosXY[0] == fruit[0] && playerOneSnakePosXY[1] == fruit[1]) {
+                        System.out.println("Wygral gracz 1");
+                        this.drawAndSendFruit();
+                    }
+                    else if(playerTwoSnakePosXY[0] == fruit[0] && playerTwoSnakePosXY[1] == fruit[1]) {
+                        System.out.println("Wygral gracz 2");
+                        this.drawAndSendFruit();
+                    }
+
                 }
             } catch (InterruptedException ex) {
 
             }
+        }
+        public void drawAndSendFruit() {
+            this.drawFruitPos(fruit);
+            playerOne.s.sendFruitPos(fruit);
+            playerTwo.s.sendFruitPos(fruit);
+        }
+        public int[] drawFruitPos(int[] fruit) {
+            fruit[0] = random.nextInt(100);
+            fruit[1] = random.nextInt(100);
+            return fruit;
         }
 
     }
 
     class Snake {
 
-        public int[] getNextPos(int snakeHeadX, int snakeHeadY, String dir) {
+        public int[] getNextPos(int[] playerPosXY, String dir) {
+            int snakeHeadX = playerPosXY[0];
+            int snakeHeadY = playerPosXY[1];
 
             if (snakeHeadX < 99 && snakeHeadY < 99 && snakeHeadX > 0 && snakeHeadY > 0) {
 
@@ -182,6 +204,7 @@ public class Server {
         }
 
         class Reading extends Thread {
+
             Game game;
             String player = "";
 
@@ -213,15 +236,15 @@ public class Server {
                             for (int i = 0; i < games.size(); i++) {
                                 if (games.get(i).gameName.equals(gName)) {
                                     gameExists = true;
-                                    games.get(i).joinGame(client);
-                                     player = "two";
+                                    game = games.get(i).joinGame(client);
+                                    player = "two";
                                 }
                             }
                             if (!gameExists) {
                                 System.out.println("Gra o podanej nazwie nie istnieje");
                             }
                         }
-                        
+
                         if (data.charAt(0) == 'd') {
 
                             switch (player) {
@@ -252,15 +275,12 @@ public class Server {
 
         class Sending {
 
-            StringBuilder posToSend = new StringBuilder();
-
-
             public void sendHeadPos(int snakeHeadX, int snakeHeadY) {
 
                 try {
                     String x = Integer.toString(snakeHeadX);
                     String y = Integer.toString(snakeHeadY);
-                    posToSend = new StringBuilder();
+                    StringBuilder posToSend = new StringBuilder();
                     if (x.length() == 1) {
                         posToSend.append(Integer.toString(0));
                     }
@@ -278,11 +298,59 @@ public class Server {
 
             }
 
+            public void sendFruitPos(int[] fruit) {
+                try {
+                    String x = Integer.toString(fruit[0]);
+                    String y = Integer.toString(fruit[1]);
+                    StringBuilder fruitToSend = new StringBuilder();
+                    fruitToSend.append("f");
+                    if (x.length() == 1) {
+                        fruitToSend.append(Integer.toString(0));
+                    }
+                    fruitToSend.append(x);
+                    if (y.length() == 1) {
+                        fruitToSend.append(Integer.toString(0));
+                    }
+                    fruitToSend.append(y);
+
+                    String xy = fruitToSend.toString();
+                    out.write(xy.getBytes());
+                    out.write("\r\n".getBytes());
+
+                } catch (IOException ex) {
+
+                }
+
+            }
+
             void initSnake() {
                 try {
                     //String[] snake = {"i","1", "5", "2", "5", "3", "5", "4", "5", "5", "5"};
-                    String snake = "i152535455565758595";
+                    StringBuilder snakeBuilder = new StringBuilder();
+                    snakeBuilder.append("i");
+                    snakeBuilder.append("0005");
+                    snakeBuilder.append("9995");
+                    snakeBuilder.append("0105");
+                    snakeBuilder.append("9895");
+                    snakeBuilder.append("0205");
+                    snakeBuilder.append("9795");
+                    snakeBuilder.append("0305");
+                    snakeBuilder.append("9695");
+                    snakeBuilder.append("0405");
+                    snakeBuilder.append("9595");
+                    snakeBuilder.append("0505");
+                    snakeBuilder.append("9495");
+                    snakeBuilder.append("0605");
+                    snakeBuilder.append("9395");
+                    snakeBuilder.append("0705");
+                    snakeBuilder.append("9295");
+                    snakeBuilder.append("0805");
+                    snakeBuilder.append("9195");
+                    snakeBuilder.append("0905");
+                    snakeBuilder.append("9095");
+                    String snake = snakeBuilder.toString();
 
+                    //String snake = "i00059995010598950205979503059695040595950505949606059395070592950805919509059095";
                     out.write(snake.getBytes());
                     out.write("\r\n".getBytes());
 
