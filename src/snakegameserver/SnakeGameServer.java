@@ -1,6 +1,5 @@
 package snakegameserver;
 
-
 import java.net.*;
 import java.io.*;
 import java.util.ArrayList;
@@ -64,7 +63,6 @@ public class SnakeGameServer {
         public void setPlayerTwoNick(String playerTwoNick) {
             this.playerTwoNick = playerTwoNick;
         }
-        
 
         public Game(String name, Client player) {
             gameName = name;
@@ -100,12 +98,11 @@ public class SnakeGameServer {
                     playerTwoSnakePosXY = snake.getNextPos(playerTwoSnakePosXY, playerTwoSnakeDir);
                     playerOne.s.sendHeadPos(playerTwoSnakePosXY[0], playerTwoSnakePosXY[1], "t");
                     playerTwo.s.sendHeadPos(playerTwoSnakePosXY[0], playerTwoSnakePosXY[1], "t");
-                    if(playerOneSnakePosXY[0] == fruit[0] && playerOneSnakePosXY[1] == fruit[1]) {
+                    if (playerOneSnakePosXY[0] == fruit[0] && playerOneSnakePosXY[1] == fruit[1]) {
                         playerOne.s.sendPoint("o");
                         playerTwo.s.sendPoint("o");
                         this.drawAndSendFruit();
-                    }
-                    else if(playerTwoSnakePosXY[0] == fruit[0] && playerTwoSnakePosXY[1] == fruit[1]) {
+                    } else if (playerTwoSnakePosXY[0] == fruit[0] && playerTwoSnakePosXY[1] == fruit[1]) {
                         playerOne.s.sendPoint("t");
                         playerTwo.s.sendPoint("t");
                         this.drawAndSendFruit();
@@ -116,11 +113,13 @@ public class SnakeGameServer {
 
             }
         }
+
         public void drawAndSendFruit() {
             this.drawFruitPos(fruit);
             playerOne.s.sendFruitPos(fruit);
             playerTwo.s.sendFruitPos(fruit);
         }
+
         public int[] drawFruitPos(int[] fruit) {
             fruit[0] = random.nextInt(100);
             fruit[1] = random.nextInt(100);
@@ -230,7 +229,7 @@ public class SnakeGameServer {
             public void run() {
                 try {
                     while (true) {
-                        
+
                         int k = 0;
                         StringBuilder sb = new StringBuilder();
 
@@ -248,13 +247,12 @@ public class SnakeGameServer {
                                     gameNameExists = true;
                                 }
                             }
-                            if(!gameNameExists) {
+                            if (!gameNameExists) {
                                 gameExists = true;
                                 game = new Game(gName, client);
                                 games.add(game);
                                 player = "one";
-                            }
-                            else {
+                            } else {
                                 s.sendMessage("me");
                             }
                         }
@@ -294,7 +292,6 @@ public class SnakeGameServer {
                                     game.setPlayerTwoSnakeDir(data);
                                     break;
                             }
-                            //sn.dir = data;
                         }
 
                         if (data.toLowerCase().equals("exit")) {
@@ -313,7 +310,7 @@ public class SnakeGameServer {
         }
 
         class Sending {
-            
+
             public void sendPlayersNicks(String playerOneNick, String playerTwoNick) {
                 try {
                     String nickToSend = "a" + playerOneNick;
@@ -322,8 +319,8 @@ public class SnakeGameServer {
                     nickToSend = "b" + playerTwoNick;
                     out.write(nickToSend.getBytes());
                     out.write("\r\n".getBytes());
-                    
-                     } catch (IOException ex) {
+
+                } catch (IOException ex) {
 
                 }
             }
@@ -413,28 +410,29 @@ public class SnakeGameServer {
 
                 }
             }
-            
+
             public void sendPoint(String player) {
                 try {
-                StringBuilder pointBuilder = new StringBuilder();
-                pointBuilder.append("p");
-                pointBuilder.append(player);
-                String pointToSend = pointBuilder.toString();
-                out.write(pointToSend.getBytes());
-                out.write("\r\n".getBytes());
-                
-                 } catch (IOException ex) {
+                    StringBuilder pointBuilder = new StringBuilder();
+                    pointBuilder.append("p");
+                    pointBuilder.append(player);
+                    String pointToSend = pointBuilder.toString();
+                    out.write(pointToSend.getBytes());
+                    out.write("\r\n".getBytes());
+
+                } catch (IOException ex) {
                     System.err.println(ex);
 
                 }
-                
+
             }
-             public void sendMessage(String messageCode) {
+
+            public void sendMessage(String messageCode) {
                 try {
-                out.write(messageCode.getBytes());
-                out.write("\r\n".getBytes());
-                
-                 } catch (IOException ex) {
+                    out.write(messageCode.getBytes());
+                    out.write("\r\n".getBytes());
+
+                } catch (IOException ex) {
                     System.err.println(ex);
 
                 }
