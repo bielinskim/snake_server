@@ -1,3 +1,5 @@
+package snakegameserver;
+
 
 import java.net.*;
 import java.io.*;
@@ -5,14 +7,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
-public class Server {
+public class SnakeGameServer {
 
     List<Client> clients = new ArrayList<>();
     List<Game> games = new ArrayList<>();
 
     public static void main(String[] args) throws IOException {
 
-        new Server().run();
+        new SnakeGameServer().run();
 
     }
 
@@ -92,12 +94,12 @@ public class Server {
                 Thread.sleep(500);
                 while (true) {
                     playerOneSnakePosXY = snake.getNextPos(playerOneSnakePosXY, playerOneSnakeDir);
-                    playerOne.s.sendHeadPos(playerOneSnakePosXY[0], playerOneSnakePosXY[1]);
-                    playerTwo.s.sendHeadPos(playerOneSnakePosXY[0], playerOneSnakePosXY[1]);
+                    playerOne.s.sendHeadPos(playerOneSnakePosXY[0], playerOneSnakePosXY[1], "o");
+                    playerTwo.s.sendHeadPos(playerOneSnakePosXY[0], playerOneSnakePosXY[1], "o");
                     Thread.sleep(50);
                     playerTwoSnakePosXY = snake.getNextPos(playerTwoSnakePosXY, playerTwoSnakeDir);
-                    playerOne.s.sendHeadPos(playerTwoSnakePosXY[0], playerTwoSnakePosXY[1]);
-                    playerTwo.s.sendHeadPos(playerTwoSnakePosXY[0], playerTwoSnakePosXY[1]);
+                    playerOne.s.sendHeadPos(playerTwoSnakePosXY[0], playerTwoSnakePosXY[1], "t");
+                    playerTwo.s.sendHeadPos(playerTwoSnakePosXY[0], playerTwoSnakePosXY[1], "t");
                     if(playerOneSnakePosXY[0] == fruit[0] && playerOneSnakePosXY[1] == fruit[1]) {
                         playerOne.s.sendPoint("o");
                         playerTwo.s.sendPoint("o");
@@ -247,11 +249,10 @@ public class Server {
                                 }
                             }
                             if(!gameNameExists) {
-                                s.sendMessage("mo");
+                                gameExists = true;
                                 game = new Game(gName, client);
                                 games.add(game);
                                 player = "one";
-                                gameExists = true;
                             }
                             else {
                                 s.sendMessage("me");
@@ -260,6 +261,8 @@ public class Server {
                         if (data.charAt(0) == 'a' && gameExists) {
                             playerNick = data.substring(1, data.length());
                             game.setPlayerOneNick(playerNick);
+                            // mo = ok, start game
+                            s.sendMessage("mo");
                         }
                         if (data.charAt(0) == 'j') {
                             String gName = data.substring(1, data.length());
@@ -325,12 +328,13 @@ public class Server {
                 }
             }
 
-            public void sendHeadPos(int snakeHeadX, int snakeHeadY) {
+            public void sendHeadPos(int snakeHeadX, int snakeHeadY, String playerCode) {
 
                 try {
                     String x = Integer.toString(snakeHeadX);
                     String y = Integer.toString(snakeHeadY);
                     StringBuilder posToSend = new StringBuilder();
+                    posToSend.append(playerCode);
                     if (x.length() == 1) {
                         posToSend.append(Integer.toString(0));
                     }
