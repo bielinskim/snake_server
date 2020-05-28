@@ -40,6 +40,7 @@ public class Server {
         Client playerTwo;
         Snake snake;
         Random random;
+        String playerOneNick = "", playerTwoNick = "";
         int[] playerOneSnakePosXY = {9, 5};
         String playerOneSnakeDir = "dright";
         int[] playerTwoSnakePosXY = {90, 95};
@@ -54,6 +55,15 @@ public class Server {
             this.playerTwoSnakeDir = playerTwoSnakeDir;
         }
 
+        public void setPlayerOneNick(String playerOneNick) {
+            this.playerOneNick = playerOneNick;
+        }
+
+        public void setPlayerTwoNick(String playerTwoNick) {
+            this.playerTwoNick = playerTwoNick;
+        }
+        
+
         public Game(String name, Client player) {
             gameName = name;
             playerOne = player;
@@ -65,12 +75,13 @@ public class Server {
         public Game joinGame(Client client) {
             playerTwo = client;
             playerTwo.s.initSnake();
-            this.startGame();
             return this;
         }
 
         public void startGame() {
             System.out.println("Sukces" + gameName);
+            playerOne.s.sendPlayersNicks(playerOneNick, playerTwoNick);
+            playerTwo.s.sendPlayersNicks(playerOneNick, playerTwoNick);
             this.drawAndSendFruit();
             this.start();
         }
@@ -88,11 +99,13 @@ public class Server {
                     playerOne.s.sendHeadPos(playerTwoSnakePosXY[0], playerTwoSnakePosXY[1]);
                     playerTwo.s.sendHeadPos(playerTwoSnakePosXY[0], playerTwoSnakePosXY[1]);
                     if(playerOneSnakePosXY[0] == fruit[0] && playerOneSnakePosXY[1] == fruit[1]) {
-                        System.out.println("Wygral gracz 1");
+                        playerOne.s.sendPoint("o");
+                        playerTwo.s.sendPoint("o");
                         this.drawAndSendFruit();
                     }
                     else if(playerTwoSnakePosXY[0] == fruit[0] && playerTwoSnakePosXY[1] == fruit[1]) {
-                        System.out.println("Wygral gracz 2");
+                        playerOne.s.sendPoint("t");
+                        playerTwo.s.sendPoint("t");
                         this.drawAndSendFruit();
                     }
 
@@ -207,12 +220,15 @@ public class Server {
 
             Game game;
             String player = "";
+            String playerNick = "";
+            boolean gameExists = false;
+            boolean gameNameExists = false;
 
             @Override
             public void run() {
                 try {
                     while (true) {
-
+                        
                         int k = 0;
                         StringBuilder sb = new StringBuilder();
 
@@ -224,25 +240,45 @@ public class Server {
 
                         if (data.charAt(0) == 'c') {
                             String gName = data.substring(1, data.length());
-                            System.out.println(gName);
-                            game = new Game(gName, client);
-                            games.add(game);
-                            player = "one";
-
+                            gameNameExists = false;
+                            for (int i = 0; i < games.size(); i++) {
+                                if (games.get(i).gameName.equals(gName)) {
+                                    gameNameExists = true;
+                                }
+                            }
+                            if(!gameNameExists) {
+                                s.sendMessage("mo");
+                                game = new Game(gName, client);
+                                games.add(game);
+                                player = "one";
+                                gameExists = true;
+                            }
+                            else {
+                                s.sendMessage("me");
+                            }
+                        }
+                        if (data.charAt(0) == 'a' && gameExists) {
+                            playerNick = data.substring(1, data.length());
+                            game.setPlayerOneNick(playerNick);
                         }
                         if (data.charAt(0) == 'j') {
                             String gName = data.substring(1, data.length());
-                            boolean gameExists = false;
                             for (int i = 0; i < games.size(); i++) {
                                 if (games.get(i).gameName.equals(gName)) {
+                                    s.sendMessage("mo");
                                     gameExists = true;
                                     game = games.get(i).joinGame(client);
                                     player = "two";
                                 }
                             }
                             if (!gameExists) {
-                                System.out.println("Gra o podanej nazwie nie istnieje");
+                                s.sendMessage("mn");
                             }
+                        }
+                        if (data.charAt(0) == 'b' && gameExists) {
+                            playerNick = data.substring(1, data.length());
+                            game.setPlayerTwoNick(playerNick);
+                            game.startGame();
                         }
 
                         if (data.charAt(0) == 'd') {
@@ -274,6 +310,20 @@ public class Server {
         }
 
         class Sending {
+            
+            public void sendPlayersNicks(String playerOneNick, String playerTwoNick) {
+                try {
+                    String nickToSend = "a" + playerOneNick;
+                    out.write(nickToSend.getBytes());
+                    out.write("\r\n".getBytes());
+                    nickToSend = "b" + playerTwoNick;
+                    out.write(nickToSend.getBytes());
+                    out.write("\r\n".getBytes());
+                    
+                     } catch (IOException ex) {
+
+                }
+            }
 
             public void sendHeadPos(int snakeHeadX, int snakeHeadY) {
 
@@ -355,6 +405,32 @@ public class Server {
                     out.write("\r\n".getBytes());
 
                 } catch (IOException ex) {
+                    System.err.println(ex);
+
+                }
+            }
+            
+            public void sendPoint(String player) {
+                try {
+                StringBuilder pointBuilder = new StringBuilder();
+                pointBuilder.append("p");
+                pointBuilder.append(player);
+                String pointToSend = pointBuilder.toString();
+                out.write(pointToSend.getBytes());
+                out.write("\r\n".getBytes());
+                
+                 } catch (IOException ex) {
+                    System.err.println(ex);
+
+                }
+                
+            }
+             public void sendMessage(String messageCode) {
+                try {
+                out.write(messageCode.getBytes());
+                out.write("\r\n".getBytes());
+                
+                 } catch (IOException ex) {
                     System.err.println(ex);
 
                 }
