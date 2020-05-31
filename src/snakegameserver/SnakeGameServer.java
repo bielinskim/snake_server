@@ -6,35 +6,58 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
+/**
+ * Serwer SnakeGame
+ * @author Mateusz Bieliński
+ */
 public class SnakeGameServer {
 
     List<Client> clients = new ArrayList<>();
     List<Game> games = new ArrayList<>();
+    ServerSocket server;
+    DatagramSocket dgsocket;
 
+    /**
+     *
+     * @param args - glowna metoda inicjalizujaca calosc
+     * @throws java.io.IOException
+     */
     public static void main(String[] args) throws IOException {
 
         new SnakeGameServer().run();
 
     }
 
+    /**
+     * metoda startujaca serwer i przyjmowanie polaczen od klientow
+     * @throws java.io.IOException
+     */
     public void run() throws IOException {
 
-        ServerSocket server = new ServerSocket(2006);
+        server = new ServerSocket(2006);
+        dgsocket = new DatagramSocket(2007);
         System.out.println("Server run ...");
 
         while (true) {
 
             Socket socket = server.accept();
+            
+            //System.out.println("getInetAddress: " + socket.getInetAddress());      // zdalny klienta
+            // System.out.println("getLocalAddress: " + socket.getLocalAddress());   // serwera
+            
 
-            Client thread = new Client(socket);
+            Client client = new Client(socket);
 
-            clients.add(thread);
-            System.out.println("New client id: " + clients.indexOf(thread));
+            clients.add(client);
+            System.out.println("New client id: " + clients.indexOf(client));
 
         }
     }
 
-    class Game extends Thread {
+    /**
+     * klasa inicjalizujaca gre dla pary graczy
+     */
+    public class Game extends Thread {
 
         String gameName;
         Client playerOne;
@@ -48,36 +71,65 @@ public class SnakeGameServer {
         String playerTwoSnakeDir = "dleft";
         int[] fruit = new int[2];
 
+        /**
+         * zmienia biezacy kierunek pierwszego gracza
+         * @param playerOneSnakeDir - kierunek pierwszego gracza
+         */
         public void setPlayerOneSnakeDir(String playerOneSnakeDir) {
             this.playerOneSnakeDir = playerOneSnakeDir;
         }
 
+        /**
+         * zmienia biezacy kierunek drugiego gracza
+         * @param playerTwoSnakeDir - kierunek drugiego gracza
+         */
         public void setPlayerTwoSnakeDir(String playerTwoSnakeDir) {
             this.playerTwoSnakeDir = playerTwoSnakeDir;
         }
 
+        /**
+         * odbiera od pierwszego gracza nick i go przypisuje do pola
+         * @param playerOneNick - nick pierwszego gracza
+         */
         public void setPlayerOneNick(String playerOneNick) {
             this.playerOneNick = playerOneNick;
         }
 
+        /**
+         * odbiera od drugiego gracza nick i go przypisuje do pola
+         * @param playerTwoNick - nick drugiego gracza
+         */
         public void setPlayerTwoNick(String playerTwoNick) {
             this.playerTwoNick = playerTwoNick;
         }
 
-        public Game(String name, Client player) {
+        /**
+         * inicjalizacja pierwszego gracza
+         * @param name - nazwa gry
+         * @param playerOne - obiekt klasy Client reprezentujacy gracza
+         */
+        public Game(String name, Client playerOne) {
             gameName = name;
-            playerOne = player;
+            this.playerOne = playerOne;
             snake = new Snake();
-            playerOne.s.initSnake();
+            this.playerOne.s.initSnake();
             random = new Random();
         }
 
-        public Game joinGame(Client client) {
-            playerTwo = client;
-            playerTwo.s.initSnake();
+        /**
+         * iniclajizacja drugiego gracza
+         * @param playerTwo - obiekt klasy Client reprezentujacy gracza
+         * @return - zwraca obiekt klasy Client drugiego gracza
+         */
+        public Game joinGame(Client playerTwo) {
+            this.playerTwo = playerTwo;
+            this.playerTwo.s.initSnake();
             return this;
         }
 
+        /**
+         * inicjalizacja gry, wyslanie przypisanych nickow do graczy, wylosowanie i wyslanie pozycji pierwszego owocu
+         */
         public void startGame() {
             System.out.println("Sukces" + gameName);
             playerOne.s.sendPlayersNicks(playerOneNick, playerTwoNick);
@@ -114,12 +166,20 @@ public class SnakeGameServer {
             }
         }
 
+        /**
+         * metoda wywolujaca wylosowanie pozycji owocu i wyslanie go do graczy
+         */
         public void drawAndSendFruit() {
             this.drawFruitPos(fruit);
             playerOne.s.sendFruitPos(fruit);
             playerTwo.s.sendFruitPos(fruit);
         }
 
+        /**
+         * metoda losujaca wspolrzedne owocu
+         * @param fruit - tablica na wylosowane wspolrzedne
+         * @return tablica z wylosowanymi wspolrzednymi
+         */
         public int[] drawFruitPos(int[] fruit) {
             fruit[0] = random.nextInt(100);
             fruit[1] = random.nextInt(100);
@@ -128,8 +188,17 @@ public class SnakeGameServer {
 
     }
 
-    class Snake {
+    /**
+     * Snake - klasa odpowiadajaca za ustalanie aktualnej pozycji glowy weza na podstawie kierunku gracza
+     */
+    public class Snake {
 
+        /**
+         * metoda ustalajaca kolejny ruch glowy weza na planszy
+         * @param playerPosXY - tablica na ustalone wspolrzedne glowy weza
+         * @param dir - kierunek na podstawie, ktorego ma zostac ustalona pozycja
+         * @return - kolejna para wspolrzednych jako aktualna pozycja glowy weza
+         */
         public int[] getNextPos(int[] playerPosXY, String dir) {
             int snakeHeadX = playerPosXY[0];
             int snakeHeadY = playerPosXY[1];
@@ -166,58 +235,51 @@ public class SnakeGameServer {
                 snakeHeadX = 1;
                 snakeHeadY = 1;
             }
-
             return new int[]{snakeHeadX, snakeHeadY};
         }
     }
 
-    class Client extends Thread {
+    /**
+     * Client - klasa przechowujaca obiekty, zmienne dotyczace danego polaczenia klient-serwer
+     */
+    public class Client {
 
         Client client;
         Socket socket;
         InputStream in;
         OutputStream out;
         BufferedReader fromKeyboard;
-
+        InetAddress clientAddress;
+        int clientUdpPort;
+        int serverUdpPort;
         Reading r;
         Sending s;
 
-        List<Fields> fields = new ArrayList();
 
-        String dir = "";
-
-        public class Fields {
-
-            int x;
-
-            int y;
-
-            public Fields(int x, int y) {
-                this.x = x;
-                this.y = y;
-            }
-        }
-
-        Client(Socket socket) throws IOException {
+        /**
+         * przypisanie socketu do lokalnego obiektu, inicjalizacja obiektow klas InputStream, OutputStream, pobranie z socketu klienta jego adresu
+         * inicjalizacja obiektow Reading i Sending
+         * @param socket - socket klienta
+         * @throws java.io.IOException
+         */
+        public Client(Socket socket) throws IOException {
 
             this.socket = socket;
             this.in = socket.getInputStream();
             this.out = socket.getOutputStream();
-            client = this;
-
-            start();
-
-        }
-
-        @Override
-        public void run() {
-
+            clientAddress = socket.getInetAddress();
+            client = this;           
             r = new Reading();
             r.start();
             s = new Sending();
-        }
+           
 
-        class Reading extends Thread {
+        } 
+
+        /**
+         * Reading - klasa odpowiedzialna za odczytywanie danych od klienta
+         */
+        public class Reading extends Thread {
 
             Game game;
             String player = "";
@@ -281,6 +343,10 @@ public class SnakeGameServer {
                             game.setPlayerTwoNick(playerNick);
                             game.startGame();
                         }
+                        if(data.charAt(0) == 'p' && gameExists) {
+                            
+                            clientUdpPort = Integer.parseInt(data.substring(1, data.length()));
+                        }
 
                         if (data.charAt(0) == 'd') {
 
@@ -309,8 +375,16 @@ public class SnakeGameServer {
             }
         }
 
-        class Sending {
+        /**
+         * Sending - klasa sluzaca do wysylania danych do klienta
+         */
+        public class Sending {
 
+            /**
+             * wyslanie przypisanych nickow do graczy 
+             * @param playerOneNick - nick pierwszego gracza
+             * @param playerTwoNick - nick drugiego gracza
+             */
             public void sendPlayersNicks(String playerOneNick, String playerTwoNick) {
                 try {
                     String nickToSend = "a" + playerOneNick;
@@ -324,7 +398,13 @@ public class SnakeGameServer {
 
                 }
             }
-
+            
+            /**
+             * wyslanie aktualnej pozycji glowy weza przy pomocy protokolu UDP
+             * @param snakeHeadX - wspolrzedna x
+             * @param snakeHeadY - wspolrzedna y
+             * @param playerCode - pierwszy/drugi gracz
+             */
             public void sendHeadPos(int snakeHeadX, int snakeHeadY, String playerCode) {
 
                 try {
@@ -341,14 +421,22 @@ public class SnakeGameServer {
                     }
                     posToSend.append(y);
                     String xy = posToSend.toString();
-                    out.write(xy.getBytes());
-                    out.write("\r\n".getBytes());
+                    
+                    
+                    byte[] buf = xy.getBytes();
+                    DatagramPacket packet = new DatagramPacket(buf, buf.length, clientAddress, clientUdpPort);
+                    dgsocket.send(packet);
+                    
                 } catch (IOException ex) {
 
                 }
 
             }
-
+            
+            /**
+             * metoda wysylajaca do graczy wspolrzedne nowego owocu
+             * @param fruit - wspolrzedne nowego owocu
+             */
             public void sendFruitPos(int[] fruit) {
                 try {
                     String x = Integer.toString(fruit[0]);
@@ -374,7 +462,10 @@ public class SnakeGameServer {
 
             }
 
-            void initSnake() {
+            /**
+             * metoda inicjalizujaca cialo weza i wysylajaca jego wspolrzedne do graczy
+             */
+            public void initSnake() {
                 try {
                     //String[] snake = {"i","1", "5", "2", "5", "3", "5", "4", "5", "5", "5"};
                     StringBuilder snakeBuilder = new StringBuilder();
@@ -411,6 +502,10 @@ public class SnakeGameServer {
                 }
             }
 
+            /**
+             * metoda wysylajaca przyznany punkt danemu graczowi
+             * @param player - pierwszy/drugi gracz
+             */
             public void sendPoint(String player) {
                 try {
                     StringBuilder pointBuilder = new StringBuilder();
@@ -427,6 +522,10 @@ public class SnakeGameServer {
 
             }
 
+            /**
+             * metoda wysylajaca wiadomosc do klienta
+             * @param messageCode - "m" + litera wskazujaca na dana wiadomosc
+             */
             public void sendMessage(String messageCode) {
                 try {
                     out.write(messageCode.getBytes());
